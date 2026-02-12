@@ -1,6 +1,14 @@
 import { CONFIG } from '../config.js';
 import { Noise } from '../utils/noise.js';
 import { BIOMES, getBiome } from './biomes.js';
+import { Interactable } from '../entities/interactable.js';
+
+export const WEATHER_TYPES = {
+    CLEAR: 'clear',
+    RAIN: 'rain',
+    SNOW: 'snow',
+    STORM: 'storm'
+};
 
 export class World {
     constructor(game) {
@@ -11,6 +19,16 @@ export class World {
         this.tiles = [];
         this.seed = Math.random();
         this.noise = new Noise(this.seed);
+
+        // Time System
+        this.time = 8.0; // Starts at 8 AM
+        this.day = 1;
+        this.dayDuration = 300; // Seconds per game day (5 minutes)
+
+        // Weather System
+        this.weather = WEATHER_TYPES.CLEAR;
+        this.weatherTimer = 0;
+        this.weatherDuration = 120; // Weather lasts 2 mins
     }
 
     generate() {
@@ -38,12 +56,14 @@ export class World {
 
         // Place structures (Towns, Dungeons)
         this.placeStructures();
+
+        // Place Interactables (Chests)
+        this.placeChests(10); // Place 10 chests
     }
 
     placeStructures() {
         // Place one town
         const center = Math.floor(this.width / 2);
-        // Ensure town is on land
         let townPlaced = false;
         let radius = 0;
 
@@ -65,10 +85,48 @@ export class World {
         }
     }
 
+    placeChests(count) {
+        for (let i = 0; i < count; i++) {
+            let placed = false;
+            while (!placed) {
+                const x = Math.floor(Math.random() * this.width);
+                const y = Math.floor(Math.random() * this.height);
+                if (this.tiles[y][x].traversable && !this.tiles[y][x].structure) {
+                    const chest = new Interactable(this.game, x * this.tileSize + this.tileSize/2, y * this.tileSize + this.tileSize/2, 'chest');
+                    this.game.entities.push(chest);
+                    placed = true;
+                }
+            }
+        }
+    }
+
     isValidStructureLocation(x, y) {
         if (x < 0 || x >= this.width || y < 0 || y >= this.height) return false;
         const tile = this.tiles[y][x];
         return tile.biome !== 'water' && tile.biome !== 'mountain';
+    }
+
+    update(dt) {
+        // Update Time
+        this.time += (dt / this.dayDuration) * 24;
+        if (this.time >= 24) {
+            this.time = 0;
+            this.day++;
+            if (this.game.ui) this.game.ui.notify(`Day ${this.day}`, 'info');
+        }
+
+        // Update Weather
+        this.weatherTimer -= dt;
+        if (this.weatherTimer <= 0) {
+            this.changeWeather();
+        }
+    }
+
+    changeWeather() {
+        const types = Object.values(WEATHER_TYPES);
+        this.weather = types[Math.floor(Math.random() * types.length)];
+        this.weatherTimer = 60 + Math.random() * 120;
+        if (this.game.ui) this.game.ui.notify(`Weather changed to ${this.weather}`, 'info');
     }
 
     render(ctx, camera) {
@@ -86,10 +144,6 @@ export class World {
                 // Base tile
                 ctx.fillStyle = CONFIG.COLORS[tile.biome] || '#000';
                 ctx.fillRect(px, py, this.tileSize, this.tileSize);
-
-                // Grid lines (optional debug)
-                // ctx.strokeStyle = 'rgba(0,0,0,0.1)';
-                // ctx.strokeRect(px, py, this.tileSize, this.tileSize);
             }
         }
     }
@@ -98,7 +152,7 @@ export class World {
         const tx = Math.floor(x / this.tileSize);
         const ty = Math.floor(y / this.tileSize);
 
-        if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) return true; // World bounds
+        if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) return true;
 
         const tile = this.tiles[ty][tx];
         return !tile.traversable;
@@ -109,5 +163,18 @@ export class World {
         const ty = Math.floor(y / this.tileSize);
         if (tx < 0 || tx >= this.width || ty < 0 || ty >= this.height) return null;
         return this.tiles[ty][tx];
+    }
+
+    getAmbientLight() {
+        if (this.time < 4 || this.time > 20) return 0.2;
+        if (this.time >= 6 && this.time <= 18) return 1.0;
+
+        if (this.time >= 4 && this.time < 6) {
+            return 0.2 + ((this.time - 4) / 2) * 0.8;
+        }
+        if (this.time > 18 && this.time <= 20) {
+            return 1.0 - ((this.time - 18) / 2) * 0.8;
+        }
+        return 0.2;
     }
 }

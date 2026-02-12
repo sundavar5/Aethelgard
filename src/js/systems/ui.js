@@ -6,28 +6,47 @@ export class UI {
         // References
         this.hud = document.getElementById('hud');
         this.hpBar = document.getElementById('hp-bar');
+        this.hpText = document.getElementById('hp-text');
         this.mpBar = document.getElementById('mp-bar');
+        this.mpText = document.getElementById('mp-text');
         this.stBar = document.getElementById('st-bar');
+        this.stText = document.getElementById('st-text');
         this.hotbar = document.getElementById('hotbar');
         this.notificationArea = document.getElementById('notification-area');
+
+        // Create Status Effects Container
+        this.statusContainer = document.createElement('div');
+        this.statusContainer.id = 'status-effects';
+        this.statusContainer.style.position = 'absolute';
+        this.statusContainer.style.top = '60px'; // Below bars
+        this.statusContainer.style.left = '20px';
+        this.statusContainer.style.display = 'flex';
+        this.statusContainer.style.gap = '5px';
+        this.hud.appendChild(this.statusContainer);
 
         this.initEventListeners();
         this.createHotbar();
     }
 
     initEventListeners() {
-        document.getElementById('btn-new-game').onclick = () => {
-            document.getElementById('title-screen').classList.add('hidden');
-            document.getElementById('hud').classList.remove('hidden');
-            this.game.init();
-        };
+        const btnNew = document.getElementById('btn-new-game');
+        if (btnNew) {
+            btnNew.onclick = () => {
+                document.getElementById('title-screen').classList.add('hidden');
+                document.getElementById('hud').classList.remove('hidden');
+                this.game.init();
+            };
+        }
 
-        document.getElementById('btn-load-game').onclick = () => {
-            // Load game logic
-            this.game.saveSystem.load();
-        };
-
-        // Other buttons
+        const btnLoad = document.getElementById('btn-load-game');
+        if (btnLoad) {
+            btnLoad.onclick = () => {
+                if (this.game.saveSystem.load()) {
+                    document.getElementById('title-screen').classList.add('hidden');
+                    document.getElementById('hud').classList.remove('hidden');
+                }
+            };
+        }
     }
 
     createHotbar() {
@@ -46,12 +65,50 @@ export class UI {
         if (!this.game.player) return;
 
         const p = this.game.player;
-        if (this.hpBar) this.hpBar.style.width = `${(p.hp / p.maxHp) * 100}%`;
-        if (this.mpBar) this.mpBar.style.width = `${(p.mp / (p.maxMp || 100)) * 100}%`;
-        if (this.stBar) this.stBar.style.width = `${(p.stamina / p.maxStamina) * 100}%`;
+        if (this.hpBar) {
+            this.hpBar.style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
+            this.hpText.textContent = `HP ${Math.ceil(p.hp)}/${p.maxHp}`;
+        }
+        if (this.mpBar) {
+            this.mpBar.style.width = `${Math.max(0, (p.mp / p.maxMp) * 100)}%`;
+            this.mpText.textContent = `MP ${Math.ceil(p.mp)}/${p.maxMp}`;
+        }
+        if (this.stBar) {
+            this.stBar.style.width = `${Math.max(0, (p.stamina / p.maxStamina) * 100)}%`;
+            this.stText.textContent = `ST ${Math.ceil(p.stamina)}/${p.maxStamina}`;
+        }
 
-        // Update hotbar selection
-        // Need to add selectSlot to player or handle it here
+        this.updateStatusEffects();
+    }
+
+    updateStatusEffects() {
+        if (!this.game.player) return;
+
+        // Clear current
+        this.statusContainer.innerHTML = '';
+
+        this.game.player.statusEffects.forEach(effect => {
+            const el = document.createElement('div');
+            el.className = 'status-icon';
+            el.textContent = effect.type[0].toUpperCase();
+            el.title = `${effect.type} (${Math.ceil(effect.duration - effect.timer)}s)`;
+
+            // Style based on type
+            const colors = { poison: '#0f0', burn: '#f00', freeze: '#00f', stun: '#ff0' };
+            el.style.backgroundColor = colors[effect.type] || '#fff';
+            el.style.width = '24px';
+            el.style.height = '24px';
+            el.style.borderRadius = '50%';
+            el.style.display = 'flex';
+            el.style.alignItems = 'center';
+            el.style.justifyContent = 'center';
+            el.style.fontSize = '12px';
+            el.style.fontWeight = 'bold';
+            el.style.color = '#000';
+            el.style.border = '1px solid #fff';
+
+            this.statusContainer.appendChild(el);
+        });
     }
 
     notify(message, type = 'info') {
@@ -60,48 +117,45 @@ export class UI {
         const notif = document.createElement('div');
         notif.className = `notification ${type}`;
         notif.textContent = message;
-        // Simple style for now
-        notif.style.background = 'rgba(0,0,0,0.8)';
-        notif.style.color = '#fff';
-        notif.style.padding = '10px';
-        notif.style.marginBottom = '5px';
-        notif.style.borderRadius = '5px';
-        notif.style.borderLeft = `4px solid ${type === 'error' ? 'red' : type === 'success' ? 'green' : 'blue'}`;
+
+        // Inline styles for notification
+        notif.style.background = 'rgba(0,0,0,0.85)';
+        notif.style.color = '#e0e0e0';
+        notif.style.padding = '10px 15px';
+        notif.style.marginBottom = '8px';
+        notif.style.borderRadius = '4px';
+        notif.style.borderLeft = `4px solid ${type === 'error' ? '#ff4444' : type === 'success' ? '#44ff44' : type === 'loot' ? '#ffd700' : '#4444ff'}`;
+        notif.style.boxShadow = '0 2px 5px rgba(0,0,0,0.5)';
+        notif.style.opacity = '0';
+        notif.style.transform = 'translateY(-10px)';
+        notif.style.transition = 'all 0.3s ease';
 
         this.notificationArea.appendChild(notif);
 
+        // Trigger animation
+        requestAnimationFrame(() => {
+            notif.style.opacity = '1';
+            notif.style.transform = 'translateY(0)';
+        });
+
         setTimeout(() => {
-            notif.remove();
+            notif.style.opacity = '0';
+            notif.style.transform = 'translateY(-10px)';
+            setTimeout(() => notif.remove(), 300);
         }, 3000);
     }
 
     showPopup(text, x, y, color) {
-        // Floating text
-        // Could be canvas based or DOM based.
-        // Let's do DOM for simplicity if UI layer is above canvas
-        const popup = document.createElement('div');
-        popup.textContent = text;
-        popup.style.position = 'absolute';
-
-        // Convert world to screen coords?
-        // Wait, x/y are world coords.
-        // Need to project to screen.
-        // Since we don't have easy access to camera in UI update loop without reference,
-        // we might want to handle floating text in Render system instead.
-        // But for now, let's just log it or notify.
-        // this.notify(text, 'combat');
-
-        // Actually, let's add a floating text system to Render.
         if (this.game.render) {
             this.game.render.addFloatingText(text, x, y, color);
         }
     }
 
     updateInventory(items) {
-        // Update inventory UI
+        // Placeholder for inventory update logic
     }
 
     updateQuests(quests) {
-        // Update quest UI
+        // Placeholder for quest update logic
     }
 }

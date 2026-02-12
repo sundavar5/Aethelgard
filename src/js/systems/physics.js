@@ -22,8 +22,15 @@ export class Physics {
             entities.forEach(e => {
                 if (e === p.owner) return; // Don't hit owner
                 if (this.checkCircleCollision(p, e)) {
-                    if (e.takeDamage) {
-                        e.takeDamage(p.damage);
+                    if (this.game.combat) {
+                        // Use combat system for damage calculation
+                        this.game.combat.applyDamage(p.owner, e, p.damage, {
+                            element: p.element,
+                            statusType: p.statusType,
+                            statusChance: p.statusChance,
+                            statusDuration: p.statusDuration,
+                            statusPower: p.statusPower
+                        });
                         p.active = false;
                     }
                 }
@@ -31,8 +38,14 @@ export class Physics {
 
             // Check player collision (if enemy projectile)
             if (p.owner !== player && this.checkCircleCollision(p, player)) {
-                if (player.takeDamage) {
-                    player.takeDamage(p.damage);
+                if (this.game.combat) {
+                    this.game.combat.applyDamage(p.owner, player, p.damage, {
+                        element: p.element,
+                        statusType: p.statusType,
+                        statusChance: p.statusChance,
+                        statusDuration: p.statusDuration,
+                        statusPower: p.statusPower
+                    });
                     p.active = false;
                 }
             }
@@ -67,9 +80,6 @@ export class Physics {
             const pushY = Math.sin(angle) * force;
 
             // Simple push away
-            // Assume equal mass for now
-            // Or prioritize player movement?
-            // Let's just push both slightly
             if (!a.static) { a.x -= pushX; a.y -= pushY; }
             if (!b.static) { b.x += pushX; b.y += pushY; }
         }

@@ -31,6 +31,10 @@ export class NPC {
         this.vx = 0;
         this.vy = 0;
         this.timer = 0;
+
+        // Ensure they persist
+        this.active = true;
+        this.hp = 100; // Invulnerable dummy HP
     }
 
     update(dt) {

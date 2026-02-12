@@ -13,6 +13,26 @@ import { UI } from './systems/ui.js';
 import { SaveSystem } from './systems/save.js';
 import { CONFIG } from './config.js';
 
+/**
+ * Game Core Class
+ *
+ * Central hub for the game engine. Initializes and manages all major systems.
+ *
+ * Architecture Overview:
+ * - Systems: Modular components handling specific domains (Input, Render, Physics, etc.).
+ *   They are instantiated here and updated every frame.
+ * - Entities: Game objects (Player, Enemy, NPC, etc.) are managed in lists and updated/rendered.
+ * - Loop: Standard requestAnimationFrame loop with delta time (dt) calculation.
+ *
+ * AI Integration Points:
+ * - World Generation: AI can be called to generate lore, region names, and unique locations.
+ * - NPC Generation: AI creates unique personalities and quests on the fly.
+ * - Dialogue: Real-time conversation generation based on context.
+ *
+ * Expansion Guide:
+ * - Adding new entities: Create a class in `entities/`, import here, and add to `this.entities`.
+ * - Adding new systems: Create a class in `systems/`, import here, and add update call in `update()`.
+ */
 export class Game {
     constructor() {
         this.input = new Input();
@@ -68,13 +88,14 @@ export class Game {
 
     update(dt) {
         if (this.player) this.player.update(dt);
+        this.world.update(dt); // Update time/weather
 
         // Update entities
         this.entities.forEach(entity => entity.update(dt));
         this.projectiles.forEach(p => p.update(dt));
 
         // Cleanup dead/inactive
-        this.entities = this.entities.filter(e => e.hp > 0);
+        this.entities = this.entities.filter(e => e.hp > 0 || e.active); // Keep interactables active
         this.projectiles = this.projectiles.filter(p => p.active);
 
         // Physics
