@@ -8,6 +8,9 @@ export class Render {
         this.ctx = this.canvas.getContext('2d');
         this.camera = { x: 0, y: 0 };
         this.floatingTexts = [];
+        this.particles = [];
+        this.shake = { x: 0, y: 0, time: 0, intensity: 0 };
+
         this.resize();
 
         // Offscreen canvas for lighting
@@ -33,10 +36,57 @@ export class Render {
         this.lightCanvas.height = this.canvas.height;
     }
 
+    triggerShake(intensity, duration) {
+        this.shake.intensity = intensity;
+        this.shake.time = duration;
+    }
+
+    addParticle(x, y, color, speed, life, size = 3) {
+        const angle = Math.random() * Math.PI * 2;
+        this.particles.push({
+            x, y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            color,
+            life,
+            maxLife: life,
+            size
+        });
+    }
+
     update(dt) {
+        // Update Shake
+        if (this.shake.time > 0) {
+            this.shake.time -= dt;
+            const k = this.shake.intensity * (this.shake.time > 0 ? 1 : 0);
+            this.shake.x = (Math.random() - 0.5) * k;
+            this.shake.y = (Math.random() - 0.5) * k;
+        } else {
+            this.shake.x = 0;
+            this.shake.y = 0;
+        }
+
+        // Update Particles
+        this.particles.forEach(p => {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.life -= dt;
+            p.size *= 0.95; // Shrink
+        });
+        this.particles = this.particles.filter(p => p.life > 0);
+
+        // Update Floating Texts
+        this.updateFloatingTexts(dt);
+
+        // --- RENDER START ---
+
         // Clear main canvas
         this.ctx.fillStyle = CONFIG.COLORS.grass;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+        this.ctx.save();
+        // Apply Shake
+        this.ctx.translate(this.shake.x, this.shake.y);
 
         // Update camera
         if (this.game.player) {
@@ -51,15 +101,33 @@ export class Render {
         this.game.entities.forEach(entity => entity.render(this.ctx, this.camera));
         if (this.game.player) this.game.player.render(this.ctx, this.camera);
 
-        // Draw Particles (Weather)
+        // Draw Particles (Game World)
+        this.renderParticles(this.ctx);
+
+        // Draw Weather (Overlay)
         this.renderWeather(this.ctx);
 
-        // Draw Lighting
+        // Draw Lighting (Overlay)
         this.renderLighting(this.ctx);
 
-        // Draw floating texts (UI layer)
-        this.updateFloatingTexts(dt);
+        this.ctx.restore(); // Restore shake
+
+        // Draw floating texts (UI layer, no shake usually but could apply)
         this.renderFloatingTexts(this.ctx);
+    }
+
+    renderParticles(ctx) {
+        this.particles.forEach(p => {
+            const px = p.x - this.camera.x;
+            const py = p.y - this.camera.y;
+
+            ctx.globalAlpha = p.life / p.maxLife;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(px, py, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        });
     }
 
     renderWeather(ctx) {
@@ -75,7 +143,6 @@ export class Render {
 
         ctx.beginPath();
         for (let i = 0; i < numParticles; i++) {
-            // Random positions for simple effect
             const x = Math.random() * this.canvas.width;
             const y = Math.random() * this.canvas.height;
             const len = w === WEATHER_TYPES.SNOW ? 2 : 10;
@@ -92,28 +159,24 @@ export class Render {
         const ambient = this.game.world ? this.game.world.getAmbientLight() : 1.0;
         const darkness = 1.0 - ambient;
 
-        if (darkness <= 0.05) return; // Full daylight
+        if (darkness <= 0.05) return;
 
-        // Clear light canvas
         this.lightCtx.clearRect(0, 0, this.lightCanvas.width, this.lightCanvas.height);
 
-        // Fill with darkness
         this.lightCtx.globalCompositeOperation = 'source-over';
-        this.lightCtx.fillStyle = `rgba(0, 0, 0, ${darkness * 0.9})`; // Max darkness 90%
+        this.lightCtx.fillStyle = `rgba(0, 0, 0, ${darkness * 0.9})`;
         this.lightCtx.fillRect(0, 0, this.lightCanvas.width, this.lightCanvas.height);
 
-        // Cut holes for lights
         this.lightCtx.globalCompositeOperation = 'destination-out';
 
-        // Player Light
         if (this.game.player) {
             const px = this.game.player.x - this.camera.x;
             const py = this.game.player.y - this.camera.y;
-            const radius = 150; // Torch radius
+            const radius = 150;
 
             const grad = this.lightCtx.createRadialGradient(px, py, 20, px, py, radius);
-            grad.addColorStop(0, 'rgba(0, 0, 0, 1)'); // Opaque erases fully
-            grad.addColorStop(1, 'rgba(0, 0, 0, 0)'); // Transparent erases nothing
+            grad.addColorStop(0, 'rgba(0, 0, 0, 1)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
             this.lightCtx.fillStyle = grad;
             this.lightCtx.beginPath();
@@ -121,7 +184,6 @@ export class Render {
             this.lightCtx.fill();
         }
 
-        // Draw light canvas over main canvas
         ctx.drawImage(this.lightCanvas, 0, 0);
     }
 

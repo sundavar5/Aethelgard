@@ -20,12 +20,13 @@
                 <div class="menu-container">
                     <button id="btn-new-game" class="menu-btn gold">NEW GAME</button>
                     <button id="btn-load-game" class="menu-btn">LOAD GAME</button>
+                    <button id="btn-reset-save" class="menu-btn danger">RESET SAVE</button>
                     <button id="btn-settings" class="menu-btn">SETTINGS</button>
                 </div>
             </div>
 
             <!-- Loading Screen -->
-            <div id="loading-screen" class="screen">
+            <div id="loading-screen" class="screen hidden">
                 <div class="loading-spinner"></div>
                 <p id="loading-text">Loading...</p>
                 <div class="loading-progress"><div id="loading-bar"></div></div>
@@ -37,11 +38,14 @@
                     <div class="bar-container hp"><div id="hp-bar" class="bar-fill"></div><span id="hp-text">HP</span></div>
                     <div class="bar-container mp"><div id="mp-bar" class="bar-fill"></div><span id="mp-text">MP</span></div>
                     <div class="bar-container st"><div id="st-bar" class="bar-fill"></div><span id="st-text">ST</span></div>
+                    <!-- Minimap Container -->
+                    <div id="minimap-container" style="margin-top: 10px; width: 100px; height: 100px; background: rgba(0,0,0,0.5); border: 2px solid #333; position: relative; overflow: hidden;">
+                        <canvas id="minimap-canvas" width="100" height="100"></canvas>
+                    </div>
                 </div>
                 <div class="hud-bottom-right">
                     <div id="hotbar" class="hotbar"></div>
                 </div>
-                <!-- More HUD elements to be added by UI system -->
             </div>
 
             <!-- Notifications -->
