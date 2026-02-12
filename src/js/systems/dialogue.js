@@ -1,47 +1,11 @@
+/**
+ * Dialogue System - Manages NPC conversations with AI-generated responses.
+ */
 export class Dialogue {
     constructor(game) {
         this.game = game;
-        this.panel = null;
         this.currentNPC = null;
         this.active = false;
-
-        // Ensure UI layer exists
-        this.createUI();
-    }
-
-    createUI() {
-        // Only if it doesn't exist
-        if (document.getElementById('dialogue-panel')) return;
-
-        const uiLayer = document.getElementById('ui-layer');
-        if (!uiLayer) return;
-
-        const panel = document.createElement('div');
-        panel.id = 'dialogue-panel';
-        panel.className = 'screen dialogue-ui hidden';
-        panel.innerHTML = `
-            <div class="dialogue-box">
-                <div class="dialogue-header">
-                    <h3 id="dialogue-npc-name">NPC Name</h3>
-                    <span id="dialogue-npc-title">Title</span>
-                    <button class="close-btn">X</button>
-                </div>
-                <div class="dialogue-content" id="dialogue-text">
-                    Greetings...
-                </div>
-                <div class="dialogue-options" id="dialogue-options">
-                    <!-- Options injected here -->
-                </div>
-            </div>
-        `;
-        uiLayer.appendChild(panel);
-
-        // Styling via JS or ensure CSS is updated
-        // For simplicity, add inline styles or assume CSS handles it
-        // Check style.css if needed
-
-        this.panel = panel;
-        panel.querySelector('.close-btn').onclick = () => this.close();
     }
 
     async start(npc) {
@@ -50,46 +14,67 @@ export class Dialogue {
         this.currentNPC = npc;
 
         const panel = document.getElementById('dialogue-panel');
-        panel.classList.remove('hidden');
+        if (panel) panel.classList.remove('hidden');
 
-        document.getElementById('dialogue-npc-name').textContent = npc.name;
-        document.getElementById('dialogue-npc-title').textContent = `${npc.race} ${npc.occupation}`;
+        const nameEl = document.getElementById('dialogue-npc-name');
+        const titleEl = document.getElementById('dialogue-npc-title');
+        if (nameEl) nameEl.textContent = npc.name;
+        if (titleEl) titleEl.textContent = `${npc.race} ${npc.occupation}`;
+
+        // Show thinking indicator
+        const textEl = document.getElementById('dialogue-text');
+        if (textEl) textEl.textContent = 'Thinking...';
+        document.getElementById('dialogue-options').innerHTML = '';
 
         // Initial greeting
         const response = await npc.talk('');
-        this.updateContent(response);
-        npc.addToHistory(npc.name, response.response);
+        if (response) {
+            this.updateContent(response);
+            npc.addToHistory(npc.name, response.response);
+        }
+
+        this.game.ui.addChatMessage('npc', npc.name, response?.response || npc.greeting);
     }
 
     async selectOption(text) {
         if (!this.currentNPC) return;
 
-        // Add player message to history
         this.currentNPC.addToHistory('Player', text);
+        this.game.ui.addChatMessage('player', this.game.player?.charName || 'You', text);
 
-        // Show loading state
-        document.getElementById('dialogue-text').textContent = 'Thinking...';
+        // Show thinking
+        const textEl = document.getElementById('dialogue-text');
+        if (textEl) textEl.textContent = 'Thinking...';
         document.getElementById('dialogue-options').innerHTML = '';
 
-        // Get AI response
         const response = await this.currentNPC.talk(text);
-        this.updateContent(response);
-        this.currentNPC.addToHistory(this.currentNPC.name, response.response);
+        if (response) {
+            this.updateContent(response);
+            this.currentNPC.addToHistory(this.currentNPC.name, response.response);
+            this.game.ui.addChatMessage('npc', this.currentNPC.name, response.response);
+        }
 
         // Check for quest triggers
         if (text.toLowerCase().includes('quest') && this.currentNPC.quest) {
-            this.game.quests.add(this.currentNPC.quest);
-            this.game.ui.notify(`Quest Accepted: ${this.currentNPC.quest.title}`, 'success');
+            const q = this.currentNPC.quest;
+            if (!this.game.questSystem.activeQuests.find(aq => aq.title === q.title)) {
+                this.game.questSystem.add(q);
+                this.game.ui.notify(`Quest Accepted: ${q.title}`, 'success');
+                this.currentNPC.quest = null; // Can only give quest once
+            }
         }
     }
 
     updateContent(data) {
-        document.getElementById('dialogue-text').textContent = data.response;
+        const textEl = document.getElementById('dialogue-text');
+        if (textEl) textEl.textContent = data.response || '...';
 
         const optionsContainer = document.getElementById('dialogue-options');
+        if (!optionsContainer) return;
         optionsContainer.innerHTML = '';
 
-        data.playerOptions.forEach(opt => {
+        const options = data.playerOptions || ['Tell me more.', 'Do you have any quests?', 'Goodbye.'];
+        options.forEach(opt => {
             const btn = document.createElement('button');
             btn.className = 'dialogue-option-btn';
             btn.textContent = opt;
@@ -97,9 +82,10 @@ export class Dialogue {
             optionsContainer.appendChild(btn);
         });
 
+        // Always add goodbye
         const bye = document.createElement('button');
         bye.className = 'dialogue-option-btn';
-        bye.textContent = 'Goodbye';
+        bye.textContent = '[Leave]';
         bye.onclick = () => this.close();
         optionsContainer.appendChild(bye);
     }
@@ -107,6 +93,7 @@ export class Dialogue {
     close() {
         this.active = false;
         this.currentNPC = null;
-        document.getElementById('dialogue-panel').classList.add('hidden');
+        const panel = document.getElementById('dialogue-panel');
+        if (panel) panel.classList.add('hidden');
     }
 }

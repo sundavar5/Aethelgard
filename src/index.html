@@ -3,49 +3,405 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aethelgard Chronicles - Reforged</title>
+    <title>Aethelgard Chronicles - AI Powered RPG</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <!-- Game Container -->
-    <div id="game-container">
-        <canvas id="game-canvas"></canvas>
+    <!-- Game Canvas -->
+    <canvas id="game-canvas"></canvas>
 
-        <!-- UI Overlay -->
-        <div id="ui-layer">
-            <!-- Title Screen -->
-            <div id="title-screen" class="screen active">
-                <h1 class="title-logo">AETHELGARD</h1>
-                <p class="title-subtitle">CHRONICLES OF THE ETERNAL REALM</p>
-                <div class="menu-container">
-                    <button id="btn-new-game" class="menu-btn gold">NEW GAME</button>
-                    <button id="btn-load-game" class="menu-btn">LOAD GAME</button>
-                    <button id="btn-settings" class="menu-btn">SETTINGS</button>
+    <!-- UI Layer -->
+    <div id="ui-layer">
+
+        <!-- Title Screen -->
+        <div id="title-screen" class="screen active">
+            <h1 class="title-logo">AETHELGARD</h1>
+            <p class="title-subtitle">CHRONICLES OF THE ETERNAL REALM</p>
+            <div class="ai-badge"><span>AI POWERED WORLD</span></div>
+
+            <div class="menu-container">
+                <div class="api-section">
+                    <h3>&#9830; DeepSeek API Configuration</h3>
+                    <div class="api-input-group">
+                        <input type="password" class="api-input" id="api-key-input" placeholder="Enter your DeepSeek API key...">
+                        <button class="menu-btn secondary" id="btn-save-key">Save</button>
+                        <button class="menu-btn secondary" id="btn-test-key">Test</button>
+                        <button class="menu-btn secondary" id="btn-clear-key">Clear</button>
+                    </div>
+                    <div class="api-status disconnected" id="api-status">
+                        <span>&#9679;</span> <span id="api-status-text">No API Key Set</span>
+                    </div>
+                    <div id="api-test-result"></div>
+                    <div class="api-hint">
+                        <p><strong>Don't have an API key?</strong> Use <strong>Quick Start</strong> below to play without AI features - all gameplay works normally!</p>
+                    </div>
+                    <p class="api-info">Your API key enables AI-generated NPCs, quests, items, and dynamic dialogue. Get your key at <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a></p>
+                </div>
+
+                <button class="menu-btn gold" id="btn-new-game">NEW GAME</button>
+                <button class="menu-btn" id="btn-load-game">LOAD GAME</button>
+                <button class="menu-btn" id="btn-settings">SETTINGS</button>
+            </div>
+        </div>
+
+        <!-- Character Creation -->
+        <div id="char-creation" class="screen">
+            <h2>Create Your Hero</h2>
+            <div class="creation-panel">
+                <div class="creation-grid">
+                    <div class="left-column">
+                        <div class="input-group">
+                            <label>Character Name</label>
+                            <input type="text" id="char-name" placeholder="Enter your name" maxlength="20" value="Hero">
+                        </div>
+                        <div class="world-seed-section">
+                            <h4>World Generation Seed (Optional)</h4>
+                            <input type="text" id="world-seed" placeholder="Leave empty for random world...">
+                            <p class="seed-help">Enter a theme like "frost kingdom", "desert empire", or "mystic forests" for AI-generated lore.</p>
+                        </div>
+                        <h3 class="section-title">Choose Your Class</h3>
+                        <div class="class-selection">
+                            <div class="class-card selected" data-class="warrior">
+                                <div class="icon">&#9876;&#65039;</div>
+                                <h3>Warrior</h3>
+                                <p>Master of melee combat with high strength and vitality</p>
+                            </div>
+                            <div class="class-card" data-class="ranger">
+                                <div class="icon">&#127993;</div>
+                                <h3>Ranger</h3>
+                                <p>Expert marksman with superior agility and precision</p>
+                            </div>
+                            <div class="class-card" data-class="mage">
+                                <div class="icon">&#128302;</div>
+                                <h3>Mage</h3>
+                                <p>Wielder of arcane magic with immense intelligence</p>
+                            </div>
+                            <div class="class-card" data-class="rogue">
+                                <div class="icon">&#128481;&#65039;</div>
+                                <h3>Rogue</h3>
+                                <p>Stealthy assassin with high agility and charisma</p>
+                            </div>
+                        </div>
+                        <p id="class-desc" class="class-desc">Masters of melee combat. Bonus: +20% Damage, +15% HP</p>
+                    </div>
+                    <div class="right-column">
+                        <h3 class="section-title">Distribute Attribute Points</h3>
+                        <div class="points-display">Available Points: <span id="points-remaining">10</span></div>
+                        <div class="stats-panel">
+                            <div class="stat-row" data-stat="str">
+                                <div class="stat-info"><span class="stat-name">STR</span><span class="stat-desc">Melee damage</span></div>
+                                <div class="stat-controls">
+                                    <button class="stat-btn" data-action="dec">-</button>
+                                    <span class="stat-value" id="stat-str-val">5</span>
+                                    <button class="stat-btn" data-action="inc">+</button>
+                                </div>
+                            </div>
+                            <div class="stat-row" data-stat="agi">
+                                <div class="stat-info"><span class="stat-name">AGI</span><span class="stat-desc">Speed, crit chance, dodge</span></div>
+                                <div class="stat-controls">
+                                    <button class="stat-btn" data-action="dec">-</button>
+                                    <span class="stat-value" id="stat-agi-val">5</span>
+                                    <button class="stat-btn" data-action="inc">+</button>
+                                </div>
+                            </div>
+                            <div class="stat-row" data-stat="int">
+                                <div class="stat-info"><span class="stat-name">INT</span><span class="stat-desc">Magic damage, MP pool</span></div>
+                                <div class="stat-controls">
+                                    <button class="stat-btn" data-action="dec">-</button>
+                                    <span class="stat-value" id="stat-int-val">5</span>
+                                    <button class="stat-btn" data-action="inc">+</button>
+                                </div>
+                            </div>
+                            <div class="stat-row" data-stat="vit">
+                                <div class="stat-info"><span class="stat-name">VIT</span><span class="stat-desc">HP, defense</span></div>
+                                <div class="stat-controls">
+                                    <button class="stat-btn" data-action="dec">-</button>
+                                    <span class="stat-value" id="stat-vit-val">5</span>
+                                    <button class="stat-btn" data-action="inc">+</button>
+                                </div>
+                            </div>
+                            <div class="stat-row" data-stat="cha">
+                                <div class="stat-info"><span class="stat-name">CHA</span><span class="stat-desc">NPC interaction bonuses</span></div>
+                                <div class="stat-controls">
+                                    <button class="stat-btn" data-action="dec">-</button>
+                                    <span class="stat-value" id="stat-cha-val">5</span>
+                                    <button class="stat-btn" data-action="inc">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="creation-actions">
+                    <button class="menu-btn" id="btn-back-title">Back</button>
+                    <button class="menu-btn gold" id="btn-start-game">Begin Adventure</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="screen">
+            <div class="loading-spinner"></div>
+            <p class="loading-text" id="loading-text">Generating World...</p>
+            <p class="loading-subtext" id="loading-subtext">The AI is crafting your unique adventure</p>
+            <div class="loading-progress"><div class="loading-progress-bar" id="loading-bar"></div></div>
+        </div>
+
+        <!-- Settings Screen -->
+        <div id="settings-screen" class="screen">
+            <div class="settings-panel">
+                <h2>Settings</h2>
+                <div class="settings-group">
+                    <label>Music Volume</label>
+                    <input type="range" id="music-volume" min="0" max="100" value="50">
+                </div>
+                <div class="settings-group">
+                    <label>SFX Volume</label>
+                    <input type="range" id="sfx-volume" min="0" max="100" value="70">
+                </div>
+                <div class="settings-group">
+                    <label>Difficulty</label>
+                    <select id="difficulty-setting">
+                        <option value="easy">Easy</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <div class="settings-group">
+                    <label>AI Response Length</label>
+                    <select id="ai-length-setting">
+                        <option value="short">Short</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="long">Long</option>
+                    </select>
+                </div>
+                <button class="menu-btn" id="btn-settings-back">Back</button>
+            </div>
+        </div>
+
+        <!-- Game HUD -->
+        <div id="hud" class="screen game-ui hidden">
+            <!-- Top-Left: Bars -->
+            <div class="hud-top-left">
+                <div class="bar-container hp">
+                    <div class="bar-fill" id="hp-bar"></div>
+                    <span class="bar-text" id="hp-text">HP 100/100</span>
+                </div>
+                <div class="bar-container mp">
+                    <div class="bar-fill" id="mp-bar"></div>
+                    <span class="bar-text" id="mp-text">MP 100/100</span>
+                </div>
+                <div class="bar-container st">
+                    <div class="bar-fill" id="st-bar"></div>
+                    <span class="bar-text" id="st-text">ST 100/100</span>
+                </div>
+                <div class="bar-container xp">
+                    <div class="bar-fill" id="xp-bar"></div>
+                    <span class="bar-text" id="xp-text">XP 0/100</span>
                 </div>
             </div>
 
-            <!-- Loading Screen -->
-            <div id="loading-screen" class="screen">
-                <div class="loading-spinner"></div>
-                <p id="loading-text">Loading...</p>
-                <div class="loading-progress"><div id="loading-bar"></div></div>
+            <!-- Top-Right: Mini Stats -->
+            <div class="hud-top-right">
+                <div class="mini-stats">
+                    <div class="mini-stat"><span class="mini-label">LVL</span><span class="mini-val" id="hud-level">1</span></div>
+                    <div class="mini-stat"><span class="mini-label">SP</span><span class="mini-val" id="hud-sp">0</span></div>
+                    <div class="mini-stat"><span class="mini-label">GOLD</span><span class="mini-val" id="hud-gold">0</span></div>
+                </div>
+                <div class="world-info">
+                    <span id="hud-world-name">Aethelgard</span>
+                    <span id="hud-region">Grasslands</span>
+                    <span id="hud-time">Day 1 - 8:00</span>
+                </div>
             </div>
 
-            <!-- HUD -->
-            <div id="hud" class="screen game-ui hidden">
-                <div class="hud-top-left">
-                    <div class="bar-container hp"><div id="hp-bar" class="bar-fill"></div><span id="hp-text">HP</span></div>
-                    <div class="bar-container mp"><div id="mp-bar" class="bar-fill"></div><span id="mp-text">MP</span></div>
-                    <div class="bar-container st"><div id="st-bar" class="bar-fill"></div><span id="st-text">ST</span></div>
+            <!-- Bottom: Hotbar -->
+            <div class="hud-bottom">
+                <div class="hotbar" id="hotbar">
+                    <div class="hotbar-slot active" data-slot="0"><span class="hotbar-key">1</span><span class="hotbar-icon">&#9876;</span><span class="hotbar-label">Sword</span></div>
+                    <div class="hotbar-slot" data-slot="1"><span class="hotbar-key">2</span><span class="hotbar-icon">&#127993;</span><span class="hotbar-label">Bow</span></div>
+                    <div class="hotbar-slot" data-slot="2"><span class="hotbar-key">3</span><span class="hotbar-icon">&#128293;</span><span class="hotbar-label">Magic</span></div>
+                    <div class="hotbar-slot" data-slot="3"><span class="hotbar-key">4</span><span class="hotbar-icon">&#128737;</span><span class="hotbar-label">Block</span></div>
+                    <div class="hotbar-slot" data-slot="4"><span class="hotbar-key">5</span><span class="hotbar-icon">&#129514;</span><span class="hotbar-label">Item</span></div>
                 </div>
-                <div class="hud-bottom-right">
-                    <div id="hotbar" class="hotbar"></div>
-                </div>
-                <!-- More HUD elements to be added by UI system -->
             </div>
 
-            <!-- Notifications -->
-            <div id="notification-area"></div>
+            <!-- Quick Actions -->
+            <div class="hud-quick-actions">
+                <button class="quick-btn" id="btn-map" title="Map (M)">&#128506;</button>
+                <button class="quick-btn" id="btn-menu" title="Menu (Tab)">&#9776;</button>
+                <button class="quick-btn" id="btn-rest" title="Rest (R)">&#128164;</button>
+                <button class="quick-btn" id="btn-help" title="Help (H)">&#10067;</button>
+            </div>
+
+            <!-- Status Effects -->
+            <div id="status-effects"></div>
+
+            <!-- Direction Indicator -->
+            <div id="direction-indicator"></div>
+
+            <!-- Active Quest Tracker -->
+            <div id="quest-tracker">
+                <h4>Active Quest</h4>
+                <div id="quest-tracker-content">No active quest</div>
+            </div>
+        </div>
+
+        <!-- Side Panel (Tab menu) -->
+        <div id="side-panel" class="hidden">
+            <div class="side-panel-tabs">
+                <button class="side-tab active" data-tab="chat">Chat</button>
+                <button class="side-tab" data-tab="inventory">Inventory</button>
+                <button class="side-tab" data-tab="skills">Skills</button>
+                <button class="side-tab" data-tab="quests">Quests</button>
+                <button class="side-tab" data-tab="stats">Stats</button>
+            </div>
+            <div class="side-panel-content">
+                <!-- Chat Tab -->
+                <div class="tab-content active" id="tab-chat">
+                    <div class="chat-log" id="chat-log"></div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chat-input" placeholder="Type a message...">
+                        <button id="btn-chat-send">Send</button>
+                    </div>
+                </div>
+                <!-- Inventory Tab -->
+                <div class="tab-content" id="tab-inventory">
+                    <div class="inv-equipped" id="equipped-items">
+                        <h4>Equipped</h4>
+                        <div class="equip-slot" data-slot="weapon"><span class="equip-label">Weapon:</span><span class="equip-name" id="equip-weapon">None</span></div>
+                        <div class="equip-slot" data-slot="armor"><span class="equip-label">Armor:</span><span class="equip-name" id="equip-armor">None</span></div>
+                        <div class="equip-slot" data-slot="accessory"><span class="equip-label">Accessory:</span><span class="equip-name" id="equip-accessory">None</span></div>
+                    </div>
+                    <h4>Inventory</h4>
+                    <div class="inv-grid" id="inv-grid"></div>
+                </div>
+                <!-- Skills Tab -->
+                <div class="tab-content" id="tab-skills">
+                    <div class="skill-points-display">Skill Points: <span id="skill-points">0</span></div>
+                    <div class="skill-branches" id="skill-branches"></div>
+                </div>
+                <!-- Quests Tab -->
+                <div class="tab-content" id="tab-quests">
+                    <h4>Active Quests</h4>
+                    <div id="quest-list"></div>
+                    <h4>Completed</h4>
+                    <div id="quest-completed-list"></div>
+                </div>
+                <!-- Stats Tab -->
+                <div class="tab-content" id="tab-stats">
+                    <div class="stats-display" id="stats-display"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dialogue Panel -->
+        <div id="dialogue-panel" class="hidden">
+            <div class="dialogue-box">
+                <div class="dialogue-header">
+                    <div class="dialogue-npc-info">
+                        <h3 id="dialogue-npc-name">NPC Name</h3>
+                        <span id="dialogue-npc-title">Title</span>
+                    </div>
+                    <button class="close-btn" id="btn-close-dialogue">&times;</button>
+                </div>
+                <div class="dialogue-content" id="dialogue-text">Greetings...</div>
+                <div class="dialogue-options" id="dialogue-options"></div>
+            </div>
+        </div>
+
+        <!-- World Map Overlay -->
+        <div id="map-overlay" class="hidden">
+            <div class="map-header">
+                <h2 id="map-title">World Map</h2>
+                <button class="close-btn" id="btn-close-map">&times;</button>
+            </div>
+            <canvas id="map-canvas"></canvas>
+            <div class="map-legend">
+                <div class="legend-item"><span class="legend-color" style="background:#3d6a4a"></span>Grass</div>
+                <div class="legend-item"><span class="legend-color" style="background:#2d4a3a"></span>Forest</div>
+                <div class="legend-item"><span class="legend-color" style="background:#6a5a4a"></span>Mountain</div>
+                <div class="legend-item"><span class="legend-color" style="background:#3a5a8a"></span>Water</div>
+                <div class="legend-item"><span class="legend-color" style="background:#4a5a3a"></span>Swamp</div>
+                <div class="legend-item"><span class="legend-color" style="background:#9a9aaa"></span>Snow</div>
+                <div class="legend-item"><span class="legend-color" style="background:#d4a853"></span>Town</div>
+                <div class="legend-item"><span class="legend-color" style="background:#5a3a6a"></span>Dungeon</div>
+            </div>
+        </div>
+
+        <!-- Help Overlay -->
+        <div id="help-overlay" class="hidden">
+            <div class="help-content">
+                <h2>Controls &amp; Help</h2>
+                <div class="help-grid">
+                    <div class="help-item"><span class="help-key">WASD</span><span>Movement</span></div>
+                    <div class="help-item"><span class="help-key">Mouse</span><span>Aim</span></div>
+                    <div class="help-item"><span class="help-key">L-Click</span><span>Attack</span></div>
+                    <div class="help-item"><span class="help-key">R-Click</span><span>Block</span></div>
+                    <div class="help-item"><span class="help-key">Space</span><span>Dodge</span></div>
+                    <div class="help-item"><span class="help-key">Shift</span><span>Sprint</span></div>
+                    <div class="help-item"><span class="help-key">1-5</span><span>Hotbar Slots</span></div>
+                    <div class="help-item"><span class="help-key">Scroll</span><span>Cycle Slots</span></div>
+                    <div class="help-item"><span class="help-key">Tab</span><span>Toggle Menu</span></div>
+                    <div class="help-item"><span class="help-key">M</span><span>World Map</span></div>
+                    <div class="help-item"><span class="help-key">R</span><span>Rest</span></div>
+                    <div class="help-item"><span class="help-key">H</span><span>Help</span></div>
+                    <div class="help-item"><span class="help-key">E</span><span>Interact / Talk</span></div>
+                </div>
+                <div class="help-ai-info">
+                    <h4>AI Features</h4>
+                    <ul>
+                        <li>Each NPC has a unique AI-generated personality and backstory</li>
+                        <li>Talk to NPCs for dynamic, contextual conversations</li>
+                        <li>Items have procedurally generated lore and descriptions</li>
+                        <li>Quests are tailored to your current location and progress</li>
+                        <li>The world evolves with AI-driven events and storylines</li>
+                    </ul>
+                </div>
+                <button class="menu-btn" id="btn-close-help">Close Help</button>
+            </div>
+        </div>
+
+        <!-- Item Tooltip Popup -->
+        <div id="item-popup" class="hidden">
+            <div class="item-popup-header">
+                <span class="item-popup-icon" id="item-popup-icon"></span>
+                <div>
+                    <div class="item-popup-name" id="item-popup-name">Item Name</div>
+                    <div class="item-popup-type" id="item-popup-type">Common Weapon</div>
+                </div>
+            </div>
+            <div class="item-popup-stats" id="item-popup-stats"></div>
+            <div class="item-popup-desc" id="item-popup-desc"></div>
+            <div class="item-popup-lore" id="item-popup-lore"></div>
+            <div class="item-popup-value" id="item-popup-value"></div>
+            <div class="item-popup-actions" id="item-popup-actions"></div>
+        </div>
+
+        <!-- Event Notification Banner -->
+        <div id="event-banner" class="hidden">
+            <div class="event-banner-content">
+                <span class="event-banner-icon" id="event-banner-icon"></span>
+                <div>
+                    <div class="event-banner-title" id="event-banner-title">World Event</div>
+                    <div class="event-banner-desc" id="event-banner-desc">Something is happening...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Generation Log -->
+        <div id="gen-log" class="hidden">
+            <h4>AI Generation Log</h4>
+            <div class="gen-log-content" id="gen-log-content"></div>
+        </div>
+
+        <!-- Notification Area -->
+        <div id="notification-area"></div>
+
+        <!-- Death Screen -->
+        <div id="death-screen" class="hidden">
+            <h2>You Died</h2>
+            <p>Lost 10% XP</p>
+            <button class="menu-btn gold" id="btn-respawn">Respawn</button>
         </div>
     </div>
 

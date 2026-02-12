@@ -1,26 +1,8 @@
 import { CONFIG } from '../config.js';
 
 /**
- * AI System Module
- *
- * This module manages interactions with the DeepSeek API (or other LLMs) to generate
- * dynamic game content. It includes caching, error handling, and prompt engineering
- * templates for various RPG elements.
- *
- * Architecture Notes:
- * - Content Generation: Uses specific methods (generateNPC, generateQuest, etc.) to
- *   construct structured prompts.
- * - JSON Parsing: All prompts request JSON output. The system attempts to parse
- *   responses, handling markdown code blocks if present.
- * - Caching: Responses are cached by prompt hash to reduce API calls and latency.
- * - Error Handling: Graceful fallbacks (returning null or notifying UI) on API failures.
- *
- * Future Enhancements:
- * - Implement streaming responses for dialogue to reduce perceived latency.
- * - Add 'context' management to maintain world state across multiple generations
- *   (e.g., remembering previous NPC interactions or world events).
- * - Create a 'Director' AI that monitors player actions and dynamically adjusts
- *   difficulty or narrative pacing.
+ * AI Client - Manages DeepSeek API interactions for dynamic content generation.
+ * Includes caching, error handling, and structured prompts for RPG elements.
  */
 export class AIClient {
     constructor() {
@@ -29,14 +11,11 @@ export class AIClient {
         this.cache = new Map();
         this.queue = [];
         this.processing = false;
+        this.maxTokens = CONFIG.AI_RESPONSE_LENGTH?.medium || 500;
 
         console.log('AI Client initialized. Enabled:', this.enabled);
     }
 
-    /**
-     * Set the API key and persist it to localStorage.
-     * @param {string} key - The API key.
-     */
     setApiKey(key) {
         this.apiKey = key.trim();
         localStorage.setItem('deepseek_api_key', this.apiKey);
@@ -44,18 +23,40 @@ export class AIClient {
     }
 
     /**
-     * Generic generation method.
-     * @param {string} prompt - The prompt to send to the AI.
-     * @param {string} type - The type of content (for logging).
-     * @param {number} maxTokens - Token limit for response.
-     * @returns {Promise<object|null>} Parsed JSON result or null on failure.
+     * Test the API connection.
      */
-    async generate(prompt, type = 'generic', maxTokens = 500) {
+    async testConnection() {
+        if (!this.apiKey) return false;
+        try {
+            const response = await fetch(CONFIG.DEEPSEEK_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.apiKey}`
+                },
+                body: JSON.stringify({
+                    model: CONFIG.AI_MODEL,
+                    messages: [{ role: 'user', content: 'Say "connected" in one word.' }],
+                    max_tokens: 10
+                })
+            });
+            return response.ok;
+        } catch (e) {
+            console.error('[AI] Connection test failed:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Generic generation method with caching and error handling.
+     */
+    async generate(prompt, type = 'generic', maxTokens = null) {
         if (!this.enabled) {
-            console.warn('AI generation skipped: No API Key');
+            console.warn('[AI] Generation skipped: No API Key');
             return null;
         }
 
+        const tokens = maxTokens || this.maxTokens;
         const cacheKey = this.hashCode(prompt);
         if (this.cache.has(cacheKey)) {
             console.log(`[AI] Cache hit for ${type}`);
@@ -65,16 +66,6 @@ export class AIClient {
         try {
             console.log(`[AI] Generating ${type}...`);
 
-            const requestBody = {
-                model: CONFIG.AI_MODEL,
-                messages: [
-                    { role: 'system', content: 'You are a creative RPG content generator. Always respond with valid JSON only, no markdown formatting.' },
-                    { role: 'user', content: prompt }
-                ],
-                max_tokens: maxTokens,
-                temperature: 0.8
-            };
-
             const response = await fetch(CONFIG.DEEPSEEK_API_URL, {
                 method: 'POST',
                 headers: {
@@ -82,7 +73,15 @@ export class AIClient {
                     'Authorization': `Bearer ${this.apiKey}`,
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify({
+                    model: CONFIG.AI_MODEL,
+                    messages: [
+                        { role: 'system', content: 'You are a creative RPG content generator. Always respond with valid JSON only, no markdown formatting, no code blocks.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    max_tokens: tokens,
+                    temperature: 0.8
+                })
             });
 
             if (!response.ok) {
@@ -90,8 +89,7 @@ export class AIClient {
             }
 
             const data = await response.json();
-
-            if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+            if (!data.choices?.[0]?.message?.content) {
                 throw new Error('Invalid API response structure');
             }
 
@@ -100,19 +98,19 @@ export class AIClient {
             try {
                 // Handle potential markdown code blocks
                 const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
-                const jsonStr = jsonMatch ? jsonMatch[1] : content;
+                const jsonStr = jsonMatch ? jsonMatch[1].trim() : content.trim();
                 result = JSON.parse(jsonStr);
             } catch (e) {
-                console.warn('[AI] Failed to parse JSON, returning raw text', e);
+                console.warn('[AI] JSON parse failed, returning raw text:', e.message);
                 result = { text: content };
             }
 
             this.cache.set(cacheKey, result);
+            console.log(`[AI] Generated ${type} successfully`);
             return result;
 
         } catch (error) {
-            console.error('[AI] Generation error:', error);
-            // TODO: Notify user via UI
+            console.error(`[AI] ${type} generation error:`, error);
             return null;
         }
     }
@@ -127,78 +125,145 @@ export class AIClient {
         return hash.toString();
     }
 
-    // Specialized generation methods
+    // ==================== WORLD GENERATION ====================
 
-    /**
-     * Generate lore for a new world.
-     * @param {string} seed - Seed or theme string.
-     */
     async generateWorldLore(seed) {
         const prompt = `Generate a fantasy world for an RPG game. Theme: "${seed || 'mystical medieval'}".
-        Create: world name, description, 5 region names with descriptions, history, and current conflicts.
-        Respond with JSON:
-        {
-            "worldName": "string",
-            "description": "string",
-            "theme": "string",
-            "regions": [{"name": "string", "description": "string", "biome": "string"}],
-            "history": "string",
-            "conflicts": ["string"],
-            "factions": [{"name": "string", "description": "string"}]
-        }`;
+Create a world with: name, description, 5 region names with descriptions, history, current conflicts, and factions.
+Respond with JSON:
+{
+    "worldName": "string",
+    "description": "string (2-3 sentences)",
+    "theme": "string",
+    "regions": [{"name": "string", "description": "string", "biome": "grass|forest|mountain|water|swamp|snow"}],
+    "history": "string (2-3 sentences)",
+    "conflicts": ["string", "string"],
+    "factions": [{"name": "string", "description": "string"}]
+}`;
         return await this.generate(prompt, 'World Lore', 800);
     }
 
-    /**
-     * Generate a unique NPC.
-     * @param {string} worldContext - Description of the world.
-     * @param {string} location - Current location name.
-     */
+    // ==================== NPC GENERATION ====================
+
     async generateNPC(worldContext, location) {
-        const prompt = `Create a unique NPC for a fantasy RPG. World: ${worldContext}
-        Location: ${location}. Include: name, race, occupation, personality traits, backstory, dialogue style, and a quest they might offer.
-        Respond with JSON:
-        {
-            "name": "string",
-            "race": "string",
-            "occupation": "string",
-            "personality": "string",
-            "backstory": "string",
-            "dialogueStyle": "string",
-            "greeting": "string",
-            "quest": {
-                "title": "string",
-                "description": "string",
-                "objective": "string",
-                "reward": "string"
-            }
-        }`;
+        const prompt = `Create a unique NPC for a fantasy RPG.
+World: ${worldContext}
+Location: ${location}
+Include name, race, occupation, personality, backstory, dialogue style, greeting, and a quest they might offer.
+Respond with JSON:
+{
+    "name": "string",
+    "race": "string (Human/Elf/Dwarf/Halfling/Orc)",
+    "occupation": "string",
+    "personality": "string (2-3 traits)",
+    "backstory": "string (2-3 sentences)",
+    "dialogueStyle": "string (how they speak)",
+    "greeting": "string (their first words to the player)",
+    "quest": {
+        "title": "string",
+        "description": "string",
+        "type": "kill|fetch|deliver|explore",
+        "target": "string",
+        "targetAmount": 3,
+        "rewards": {"xp": 100, "gold": 50}
+    }
+}`;
         return await this.generate(prompt, 'NPC', 700);
     }
 
-    /**
-     * Generate dynamic dialogue response.
-     * @param {string} npcContext - Description of the NPC.
-     * @param {string} playerMessage - What the player said.
-     * @param {Array} conversationHistory - Previous exchanges.
-     */
+    // ==================== DIALOGUE GENERATION ====================
+
     async generateDialogue(npcContext, playerMessage, conversationHistory) {
-        const history = conversationHistory.map(h => `${h.speaker}: ${h.text}`).join('\n');
-        const prompt = `NPC: ${npcContext}
-        Conversation history:
-        ${history}
+        const history = conversationHistory.slice(-10).map(h => `${h.speaker}: ${h.text}`).join('\n');
+        const prompt = `You are an NPC in a fantasy RPG.
+NPC: ${npcContext}
+Conversation history:
+${history}
 
-        Player says: "${playerMessage}"
+Player says: "${playerMessage}"
 
-        Respond as the NPC. Stay in character. Keep response to 1-2 sentences.
-        Also provide 3-4 dialogue options for the player to respond with.
+Respond as the NPC in character. Keep response to 1-3 sentences.
+Also provide 3 dialogue options for the player.
 
-        Respond with JSON:
-        {
-            "response": "string",
-            "playerOptions": ["string", "string", "string", "string"],
-            "mood": "friendly|neutral|hostile|curious"
-        }`;
+Respond with JSON:
+{
+    "response": "string",
+    "playerOptions": ["string", "string", "string"],
+    "mood": "friendly|neutral|hostile|curious"
+}`;
         return await this.generate(prompt, 'Dialogue', 400);
+    }
+
+    // ==================== ITEM GENERATION ====================
+
+    async generateItem(type, rarity, worldContext) {
+        const rarityMultipliers = { common: 1, uncommon: 1.5, rare: 2, epic: 3, legendary: 5 };
+        const mult = rarityMultipliers[rarity] || 1;
+
+        const prompt = `Generate a ${rarity} ${type} item for a fantasy RPG.
+World context: ${worldContext}
+Create a unique item with a creative name, description, lore/backstory, and appropriate stats.
+Stats should scale with rarity (${rarity}, multiplier: ${mult}x).
+
+Respond with JSON:
+{
+    "name": "string (creative fantasy name)",
+    "description": "string (1-2 sentences about the item)",
+    "lore": "string (1 sentence of lore/backstory)",
+    "type": "${type}",
+    "rarity": "${rarity}",
+    "stats": {
+        ${type === 'weapon' ? '"damage": number (5-50 scaled by rarity)' : ''}
+        ${type === 'armor' ? '"defense": number (3-30 scaled by rarity), "hp": number (0-50 scaled by rarity)' : ''}
+        ${type === 'accessory' ? '"damage": number (0-10), "defense": number (0-10), "crit": number (0-15)' : ''}
+    },
+    "value": number (10-500 scaled by rarity)
+}`;
+        return await this.generate(prompt, 'Item', 400);
+    }
+
+    // ==================== QUEST GENERATION ====================
+
+    async generateQuest(playerContext, worldContext) {
+        const prompt = `Generate a quest for a fantasy RPG.
+Player: ${playerContext}
+World: ${worldContext}
+Create a quest with title, description, objectives, type, and rewards.
+Difficulty should match the player's level.
+
+Respond with JSON:
+{
+    "title": "string (creative quest title)",
+    "description": "string (2-3 sentences)",
+    "type": "kill|fetch|deliver|explore",
+    "target": "string (what to kill/find/deliver/explore)",
+    "targetAmount": number (1-10),
+    "rewards": {"xp": number (50-500), "gold": number (20-200)},
+    "difficulty": "easy|normal|hard"
+}`;
+        return await this.generate(prompt, 'Quest', 400);
+    }
+
+    // ==================== WORLD EVENT GENERATION ====================
+
+    async generateWorldEvent(worldContext, playerLevel) {
+        const prompt = `Generate a dynamic world event for a fantasy RPG.
+World: ${worldContext}
+Player Level: ${playerLevel}
+Create an interesting event (political, natural disaster, magical anomaly, invasion, etc.).
+
+Respond with JSON:
+{
+    "title": "string (event title)",
+    "description": "string (2-3 sentences describing what is happening)",
+    "type": "political|natural|magical|invasion|discovery",
+    "impact": "string (how it affects the world)",
+    "duration": number (60-300 seconds),
+    "choices": [
+        {"text": "string (player choice 1)", "outcome": "string (what happens)"},
+        {"text": "string (player choice 2)", "outcome": "string (what happens)"}
+    ]
+}`;
+        return await this.generate(prompt, 'World Event', 500);
     }
 }

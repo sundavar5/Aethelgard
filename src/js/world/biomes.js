@@ -1,19 +1,26 @@
+/**
+ * Biome definitions for world generation.
+ * Each biome has traversability, speed modifiers, and noise thresholds.
+ */
 export const BIOMES = {
-    WATER: { id: 'water', color: '#3a5a8a', traversable: false },
-    SWAMP: { id: 'swamp', color: '#4a5a3a', traversable: true, speed: 0.7 },
-    GRASS: { id: 'grass', color: '#3d6a4a', traversable: true, speed: 1.0 },
-    FOREST: { id: 'forest', color: '#2d4a3a', traversable: true, speed: 0.9 },
-    MOUNTAIN: { id: 'mountain', color: '#6a5a4a', traversable: false },
-    SNOW: { id: 'snow', color: '#9a9aaa', traversable: true, speed: 0.8 },
-    TOWN: { id: 'town', color: '#d4a853', traversable: true, speed: 1.0 },
-    DUNGEON: { id: 'dungeon', color: '#5a3a6a', traversable: true, speed: 1.0 }
+    water:    { id: 'water',    traversable: false, speed: 0,   minNoise: -Infinity, maxNoise: -0.3 },
+    swamp:    { id: 'swamp',    traversable: true,  speed: 0.6, minNoise: -0.3,      maxNoise: -0.1 },
+    grass:    { id: 'grass',    traversable: true,  speed: 1.0, minNoise: -0.1,      maxNoise: 0.2 },
+    forest:   { id: 'forest',   traversable: true,  speed: 0.8, minNoise: 0.2,       maxNoise: 0.5 },
+    mountain: { id: 'mountain', traversable: false, speed: 0,   minNoise: 0.5,       maxNoise: 0.7 },
+    snow:     { id: 'snow',     traversable: true,  speed: 0.7, minNoise: 0.7,       maxNoise: Infinity }
 };
 
+/**
+ * Get biome for a given noise value.
+ * @param {number} noise - The combined noise value.
+ * @returns {object} The biome definition.
+ */
 export function getBiome(noise) {
-    if (noise < -0.5) return BIOMES.WATER;
-    if (noise < -0.3) return BIOMES.SWAMP;
-    if (noise < 0) return BIOMES.GRASS;
-    if (noise < 0.3) return BIOMES.FOREST;
-    if (noise < 0.6) return BIOMES.MOUNTAIN;
-    return BIOMES.SNOW;
+    if (noise < -0.3)  return BIOMES.water;
+    if (noise < -0.1)  return BIOMES.swamp;
+    if (noise < 0.2)   return BIOMES.grass;
+    if (noise < 0.5)   return BIOMES.forest;
+    if (noise < 0.7)   return BIOMES.mountain;
+    return BIOMES.snow;
 }
