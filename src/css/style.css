@@ -1,0 +1,133 @@
+:root {
+    --bg-dark: #0a0a0f;
+    --text-color: #e0e0e0;
+    --accent-gold: #d4a853;
+    --accent-red: #ff4444;
+    --accent-blue: #4444ff;
+    --accent-green: #44ff44;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+body {
+    background: var(--bg-dark);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+}
+
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 15, 0.9);
+    pointer-events: auto;
+    transition: opacity 0.3s;
+}
+
+.screen.hidden {
+    opacity: 0;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.title-logo {
+    font-size: 4rem;
+    color: var(--accent-gold);
+    text-shadow: 0 0 20px rgba(212, 168, 83, 0.5);
+    margin-bottom: 2rem;
+}
+
+.menu-btn {
+    padding: 15px 40px;
+    margin: 10px;
+    background: #1a1a2a;
+    border: 1px solid #3a3a4a;
+    color: var(--text-color);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.menu-btn:hover {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 10px rgba(212, 168, 83, 0.3);
+}
+
+.game-ui {
+    background: transparent;
+    pointer-events: none;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px;
+}
+
+.hud-top-left {
+    pointer-events: auto;
+}
+
+.bar-container {
+    width: 200px;
+    height: 20px;
+    background: #000;
+    border: 1px solid #333;
+    margin-bottom: 5px;
+    position: relative;
+}
+
+.bar-fill {
+    height: 100%;
+    transition: width 0.2s;
+}
+
+.hp .bar-fill { background: var(--accent-red); }
+.mp .bar-fill { background: var(--accent-blue); }
+.st .bar-fill { background: var(--accent-green); }
+
+.hotbar {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+.hotbar-slot {
+    width: 50px;
+    height: 50px;
+    border: 2px solid #333;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.hotbar-slot.active {
+    border-color: var(--accent-gold);
+}

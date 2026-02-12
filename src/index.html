@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aethelgard Chronicles - Reforged</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Game Container -->
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- UI Overlay -->
+        <div id="ui-layer">
+            <!-- Title Screen -->
+            <div id="title-screen" class="screen active">
+                <h1 class="title-logo">AETHELGARD</h1>
+                <p class="title-subtitle">CHRONICLES OF THE ETERNAL REALM</p>
+                <div class="menu-container">
+                    <button id="btn-new-game" class="menu-btn gold">NEW GAME</button>
+                    <button id="btn-load-game" class="menu-btn">LOAD GAME</button>
+                    <button id="btn-settings" class="menu-btn">SETTINGS</button>
+                </div>
+            </div>
+
+            <!-- Loading Screen -->
+            <div id="loading-screen" class="screen">
+                <div class="loading-spinner"></div>
+                <p id="loading-text">Loading...</p>
+                <div class="loading-progress"><div id="loading-bar"></div></div>
+            </div>
+
+            <!-- HUD -->
+            <div id="hud" class="screen game-ui hidden">
+                <div class="hud-top-left">
+                    <div class="bar-container hp"><div id="hp-bar" class="bar-fill"></div><span id="hp-text">HP</span></div>
+                    <div class="bar-container mp"><div id="mp-bar" class="bar-fill"></div><span id="mp-text">MP</span></div>
+                    <div class="bar-container st"><div id="st-bar" class="bar-fill"></div><span id="st-text">ST</span></div>
+                </div>
+                <div class="hud-bottom-right">
+                    <div id="hotbar" class="hotbar"></div>
+                </div>
+                <!-- More HUD elements to be added by UI system -->
+            </div>
+
+            <!-- Notifications -->
+            <div id="notification-area"></div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
